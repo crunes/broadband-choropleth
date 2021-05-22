@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        .chart-container {
+            max-width: 1050px;
+            /* border: 3px solid red; */
+            margin: 0 auto;
+            /* auto centers the div */
+            font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+        }
+
+        svg {
+            /* border: 2px solid purple; */
+            overflow: visible;
+        }
+
+        img {
+          display: block;
+          margin-left: auto;
+          margin-right: auto;
+          padding-bottom: 2rem;
+        }
+
+
+        h1 {
+          margin: 2.5rem auto;
+          text-align: center;
+        }
+
+        p {
+          margin-left: 17.5rem;
+          margin-right: 17.5rem;
+          margin-bottom: 2.5rem;
+          text-align: justify;
+        }
+
+        #legend-title {
+          text-align: center;
+          margin-bottom: 1rem;;
+        }
+
+        .pop-up {
+            position: absolute;
+            border: 1px solid black;
+            border-radius: 1px;
+            line-height: 1.2;
+            width: 200px;
+            pointer-events: none;
+            background-color: white;
+            padding: 10px;
+            opacity: 0;
+        }
+
+    </style>
+
+</head>
+
+<body>
+    <div class="chart-container">
+        <h1 class="headline">
+          Many Americans still lack broadband access.
+        </h1>
+        <p class="intro">
+          Internet access has become more and more of a necessity over the past
+          decade. Those who do not have broadband service face significant barriers
+          accessing critical information and services. See what percent of
+          residents in your county still do not have access to fixed broadband
+          service at 25/3 mbps or higher advertised speeds.
+        </p>
+
+        <p id="legend-title">Percent of residents without broadband access</p>
+        <img id="legend" src='assets/fcc-key.svg'>
+
+        <svg width="1050px" height="500px">
+
+        </svg>
+
+        <div class="pop-up"></div>
+    </div>
+</body>
+
+
+<!-- we're using d3 version 6 (the latest version) for all out work -->
+<script src="https://d3js.org/d3.v6.min.js"></script>
+
+<!-- load topojson script -->
+<script src="https://unpkg.com/topojson@3"></script>
+
+<script>
+    console.log({ d3 })
+    console.log({ topojson })
+
+    Promise.all([
+        d3.json('data/fcc_county_state_topo.json'),
+    ])
+        .then(ready)
+        .catch((err) => {
+            console.log(err);
+        });
+
+    function ready(res) {
+        console.log(res[0])
+        let raw = res[0]
+
+        let county = topojson.feature(raw, raw.objects.fcc_county);
+        let state = topojson.feature(raw, raw.objects.state);
+
+        let popup = d3.select(".pop-up");
+
+        let width = 1050;
+        let height = 500;
+
+        console.log(state,county)
+
+        let svg = d3.select("body").select("svg")
+
+        let myProjection = d3.geoAlbersUsa()
+            .fitSize([width, height], state)
+
+        //path function
+        let path = d3.geoPath()
+            .projection(myProjection)
+
+        let color = d3.scaleThreshold()
+          .domain([3,10,20,32,50,85])
+          .range(["#f2f0f7","#dadaeb","#bcbddc","#9e9ac8","#807dba","#6a51a3","#4a1486"])
+          // .domain([20,40,60,80])
+          // .range(["#f1eef6","#d7b5d8","#df65b0","#dd1c77","#980043"])
+
+        // Color in counties
+        let counties = svg.append("g")
+          .selectAll(".counties")
+          .data(county.features)
+          .attr("class", d => "p-" + d.properties.GEOID)
+          .join("path")
+          .attr("d", path)
+          .attr("fill", d => color(d.properties.pctpopwobbacc))
+          .style("stroke-width", "0")
+
+        // Add state lines
+        svg
+          .selectAll(".states")
+          .data(state.features)
+          .join("path")
+          .attr("d", path)
+          .style("stroke", "#fff")
+          .attr("fill", "none")
+          .style("pointer-events", "none")
+
+        // Pop-ups!
+        counties.on("mouseover", (event, d) => {
+          counties.select(".p-" + d.properties.GEOID)
+            .style("stroke-width", 1)
+            .raise()
+
+          let lang = "In " + d.properties.geography_desc + ", " + d.properties.STUSPS + ", " + (d.properties.pctpopwobbacc)
+          lang += "% of residents do not have broadband access."
+
+          popup
+            .style("opacity", 1)
+            .style("left", (event.x - 100) + "px")
+            .style("top", (event.y - 100) + "px")
+            .html(lang)
+
+        })
+
+        counties.on("mouseout", (event, d) => {
+          popup
+            .style("opacity", 0)
+        })
+
+    }
+
+
+
+
+
+
+
+
+</script>
